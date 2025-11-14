@@ -6,3 +6,8 @@ start.sh
 
 # Alembic
 migrations/__pycache__
+
+# Model
+app/models/__pycache__
+
+app/__pycache__
