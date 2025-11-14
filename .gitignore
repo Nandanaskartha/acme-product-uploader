@@ -1,1 +1,8 @@
+# Environment
 venv/
+
+#Start script
+start.sh
+
+# Alembic
+migrations/__pycache__
