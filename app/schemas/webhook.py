@@ -12,7 +12,7 @@ class WebhookBase(BaseModel):
 
     @validator('event_type')
     def validate_event_type(cls, v):
-        allowed_events = ['product.created', 'product.updated', 'product.deleted', 'csv.completed']
+        allowed_events = ['product.created', 'product.updated', 'product.deleted', 'csv.completed','product.bulk_deleted']
         if v not in allowed_events:
             raise ValueError(f'event_type must be one of {allowed_events}')
         return v
@@ -31,7 +31,7 @@ class WebhookUpdate(BaseModel):
     @validator('event_type')
     def validate_event_type(cls, v):
         if v is not None:
-            allowed_events = ['product.created', 'product.updated', 'product.deleted', 'csv.completed']
+            allowed_events = ['product.created', 'product.updated', 'product.deleted', 'csv.completed', 'product.bulk_deleted']
             if v not in allowed_events:
                 raise ValueError(f'event_type must be one of {allowed_events}')
         return v

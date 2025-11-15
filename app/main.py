@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.models.webhook import Webhook, Base as WebhookBase
 from app.schemas.webhook import WebhookCreate, WebhookUpdate, WebhookResponse, WebhookTestResponse
 from app.webhook_tasks import test_webhook_sync, trigger_webhooks_for_event
-
+from datetime import datetime
 from app.database import SessionLocal
 from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
@@ -26,7 +26,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["https://acme-frontend-df59.onrender.com", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -190,7 +190,13 @@ def bulk_delete_products(db: Session = Depends(get_db)):
         
         db.query(Product).delete()
         db.commit()
-        
+        from app.webhook_tasks import trigger_webhooks_for_event
+        trigger_webhooks_for_event.delay('product.bulk_deleted', {
+            "deleted_count": count,
+            "timestamp": datetime.utcnow().isoformat(),
+            "operation": "bulk_delete"
+        })
+
         return {
             "success": True,
             "message": f"Successfully deleted {count} product(s)",
