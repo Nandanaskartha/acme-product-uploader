@@ -271,6 +271,7 @@ function WebhookCard({ webhook, onEdit, onDelete, onToggle, onTest, testResult }
     'product.created': { bg: '#dbeafe', text: '#1e40af' },
     'product.updated': { bg: '#fef3c7', text: '#92400e' },
     'product.deleted': { bg: '#fee2e2', text: '#991b1b' },
+    'product.bulk_deleted': { bg: '#fde8e8', text: '#7f1d1d' },
     'csv.completed': { bg: '#dcfce7', text: '#166534' }
   };
 
@@ -573,6 +574,7 @@ function WebhookModal({ webhook, onClose, onSave, showNotification }) {
               <option value="product.created">Product Created</option>
               <option value="product.updated">Product Updated</option>
               <option value="product.deleted">Product Deleted</option>
+              <option value="product.bulk_deleted">Product Bulk Deleted</option>
               <option value="csv.completed">CSV Import Completed</option>
             </select>
           </div>

@@ -1,24 +1,20 @@
-// import ProductManagement from "./components/ProductManagement";
-// export default function App() {
-//   return <ProductManagement />;
-// } 
-
-
 import React, { useState } from "react";
-// import Upload from "./components/WebhookManagement";
 import ProductManagement from "./components/ProductManagement";
 import WebhookManagement from "./components/WebhookManagement";
 
 export default function App() {
-//   return <Upload />;
-// }
   const [page, setPage] = useState("upload");
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 20, textAlign: "center" }}>
+      
+      {/* Heading + Subheading */}
+      <h1 style={{ marginBottom: 5 }}>Acme Inc</h1>
+      <h2 style={{ marginTop: 0, marginBottom: 20, fontWeight: "normal", color: "#555" }}>
+        Product Importer
+      </h2>
 
-      {/* Navigation */}
-      <div style={{ marginBottom: 20, display: "flex", gap: 10 }}>
+      <div style={{ marginBottom: 20, display: "flex", gap: 10, justifyContent: "center" }}>
         <button onClick={() => setPage("webhook")}>
           Manage WebHooks
         </button>
