@@ -1,13 +1,13 @@
 ## Step 1: Creating the project structure
-## Step:2 : Postgres db setup on render and db connection ssetup
-## step 3: feat: add minimal frontend upload page and initialize FastAPI, Celery, and Redis setup
+## Step:2 : Postgres db setup on render and db connection setup
+## Step 3: feat: add minimal frontend upload page and initialize FastAPI, Celery, and Redis setup
 
 - Added simple react frontend for CSV upload
 - Configured FastAPI app with upload endpoint
 - Initialized Celery worker with Redis broker & backend
 - Added basic task wiring between FastAPI and Celery
 
-## step 4: Add product listing with pagination
+## Step 4: Add product listing with pagination
 
 - GET /products endpoint with query parameters
 - Pagination support (page, limit)
@@ -27,3 +27,11 @@
 - DELETE /products/bulk-delete for clearing database
 - Returns count of deleted records
 - Story 3: Bulk Delete from UI"
+
+## Step 5:  Add APIs and UI for managing webhooks:
+
+- Store webhook configs in DB (URL, event type, enabled/disabled).
+- UI allows users to add, edit, delete, and test webhooks.
+- Test endpoint triggers sample event and returns visible HTTP response code/time.
+- Ensure webhook calls are dispatched asynchronously (Celery).
+- Story 4: Webhook Configuration via UI"

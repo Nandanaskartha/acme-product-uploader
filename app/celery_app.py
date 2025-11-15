@@ -28,6 +28,6 @@ if os.name == 'nt':
     )
 
 # Auto-discover tasks
-celery.autodiscover_tasks(['app'])
+celery.autodiscover_tasks(['app', 'app.webhook_tasks'])
 
 

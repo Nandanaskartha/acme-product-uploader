@@ -1,4 +1,3 @@
-# app/tasks.py
 import csv
 import os
 import io
@@ -8,10 +7,9 @@ from app.database import SessionLocal, engine
 from app.models.product import Product, Base
 from app.progress import publish_progress
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from datetime import datetime
 
 BATCH_SIZE = 1000
-
-from app.celery_app import celery
 
 
 @celery.task(bind=True, max_retries=3, default_retry_delay=10)
@@ -40,7 +38,9 @@ def process_csv_task(self, job_id: str, filepath: str):
                 name = (row.get("name") or "").strip()
                 description = (row.get("description") or "").strip()
                 price_raw = (row.get("price") or "0").strip()
-                
+                if not sku:
+                    processed_lines += 1
+                    continue
                 try:
                     price = Decimal(price_raw)
                 except Exception:
@@ -80,6 +80,16 @@ def process_csv_task(self, job_id: str, filepath: str):
             "total": total_lines,
             "percent": 100
         })
+        try:
+            from app.webhook_tasks import trigger_webhooks_for_event
+            trigger_webhooks_for_event.delay('csv.completed', {
+                "job_id": job_id,
+                "total_imported": processed_lines,
+                "timestamp": datetime.utcnow().isoformat()
+            })
+        except ImportError:
+            # Webhook tasks not available, skip
+            pass
         
     except Exception as exc:
         publish_progress(job_id, {"status": "error", "message": str(exc)})
@@ -92,10 +102,21 @@ def _bulk_upsert(rows: list):
     if not rows:
         return
 
+    # Deduplicate rows by SKU - keep the last occurrence of each SKU
+    seen_skus = {}
+    for row in rows:
+        sku = row['sku']
+        if sku:  # Only process non-empty SKUs
+            seen_skus[sku] = row
+    
+    unique_rows = list(seen_skus.values())
+    if not unique_rows:
+        return
+
     db = SessionLocal()
     try:
         products_table = Product.__table__
-        insert_stmt = pg_insert(products_table).values(rows)
+        insert_stmt = pg_insert(products_table).values(unique_rows)
         update_cols = {
             "name": insert_stmt.excluded.name,
             "description": insert_stmt.excluded.description,
@@ -103,13 +124,14 @@ def _bulk_upsert(rows: list):
             "active": insert_stmt.excluded.active,
         }
         upsert_stmt = insert_stmt.on_conflict_do_update(
-            index_elements=["sku"],  # since we store sku as lowercase and unique
+            index_elements=["sku"], 
             set_=update_cols
         )
         db.execute(upsert_stmt)
         db.commit()
-    except Exception:
+    except Exception as e:
         db.rollback()
+        print(f"Error during bulk upsert: {str(e)}")
         raise
     finally:
         db.close()

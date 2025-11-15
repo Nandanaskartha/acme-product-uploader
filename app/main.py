@@ -1,4 +1,3 @@
-# app/main.py
 import os
 import uuid
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException, Query, Depends
@@ -10,8 +9,10 @@ from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from app.models.webhook import Webhook, Base as WebhookBase
+from app.schemas.webhook import WebhookCreate, WebhookUpdate, WebhookResponse, WebhookTestResponse
+from app.webhook_tasks import test_webhook_sync, trigger_webhooks_for_event
 
-# Import from local modules
 from app.database import SessionLocal
 from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
@@ -31,8 +32,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==================== DATABASE DEPENDENCY ====================
-
 def get_db():
     db = SessionLocal()
     try:
@@ -40,7 +39,89 @@ def get_db():
     finally:
         db.close()
 
-# ==================== CSV UPLOAD & PROGRESS ====================
+#Webhook routes
+
+@app.get("/webhooks", response_model=list[WebhookResponse])
+def list_webhooks(db: Session = Depends(get_db)):
+    """List all webhooks"""
+    webhooks = db.query(Webhook).order_by(Webhook.created_at.desc()).all()
+    return webhooks
+
+@app.post("/webhooks", response_model=WebhookResponse)
+def create_webhook(webhook: WebhookCreate, db: Session = Depends(get_db)):
+    """Create a new webhook"""
+    db_webhook = Webhook(**webhook.dict())
+    db.add(db_webhook)
+    db.commit()
+    db.refresh(db_webhook)
+    return db_webhook
+
+@app.get("/webhooks/{webhook_id}", response_model=WebhookResponse)
+def get_webhook(webhook_id: int, db: Session = Depends(get_db)):
+    """Get a single webhook by ID"""
+    webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
+    if not webhook:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    return webhook
+
+@app.put("/webhooks/{webhook_id}", response_model=WebhookResponse)
+def update_webhook(
+    webhook_id: int,
+    webhook_update: WebhookUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update an existing webhook"""
+    db_webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
+    if not db_webhook:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    
+    # Update fields
+    for field, value in webhook_update.dict(exclude_unset=True).items():
+        setattr(db_webhook, field, value)
+    
+    db.commit()
+    db.refresh(db_webhook)
+    return db_webhook
+
+@app.delete("/webhooks/{webhook_id}")
+def delete_webhook(webhook_id: int, db: Session = Depends(get_db)):
+    """Delete a webhook"""
+    db_webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
+    if not db_webhook:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    
+    db.delete(db_webhook)
+    db.commit()
+    return {"message": "Webhook deleted successfully"}
+
+@app.post("/webhooks/{webhook_id}/test", response_model=WebhookTestResponse)
+def test_webhook(webhook_id: int, db: Session = Depends(get_db)):
+    """Test a webhook by sending a sample event"""
+    webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
+    if not webhook:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    
+    # Test webhook synchronously to return immediate results
+    result = test_webhook_sync(webhook_id)
+    return result
+
+@app.post("/webhooks/{webhook_id}/toggle")
+def toggle_webhook(webhook_id: int, db: Session = Depends(get_db)):
+    """Enable/disable a webhook"""
+    webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
+    if not webhook:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    
+    webhook.enabled = not webhook.enabled
+    db.commit()
+    db.refresh(webhook)
+    
+    return {
+        "message": f"Webhook {'enabled' if webhook.enabled else 'disabled'}",
+        "enabled": webhook.enabled
+    }
+
+#Product routes
 
 @app.post("/upload")
 async def upload_csv(file: UploadFile = File(...)):
@@ -163,7 +244,6 @@ def list_products(
 @app.post("/products", response_model=ProductResponse)
 def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     """Create a new product"""
-    # Check for duplicate SKU (case-insensitive)
     existing = db.query(Product).filter(
         func.lower(Product.sku) == func.lower(product.sku)
     ).first()
@@ -178,6 +258,13 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     db.add(db_product)
     db.commit()
     db.refresh(db_product)
+
+    trigger_webhooks_for_event.delay('product.created', {
+        "product_id": db_product.id,
+        "sku": db_product.sku,
+        "name": db_product.name,
+        "price": str(db_product.price)
+    })
     
     return db_product
 
@@ -218,6 +305,13 @@ def update_product(
     
     db.commit()
     db.refresh(db_product)
+
+    trigger_webhooks_for_event.delay('product.updated', {
+        "product_id": db_product.id,
+        "sku": db_product.sku,
+        "name": db_product.name,
+        "price": str(db_product.price)
+    })
     return db_product
 
 @app.delete("/products/{product_id}")
@@ -227,19 +321,18 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
     
+    product_data = {
+        "product_id": db_product.id,
+        "sku": db_product.sku,
+        "name": db_product.name
+    }
+
     db.delete(db_product)
     db.commit()
+    trigger_webhooks_for_event.delay('product.deleted', product_data)
     return {"message": "Product deleted successfully"}
 
-# @app.delete("/products/bulk-delete")
-# def bulk_delete_products(db: Session = Depends(get_db)):
-#     """Delete all products (Story 3)"""
-#     count = db.query(Product).count()
-#     db.query(Product).delete()
-#     db.commit()
-#     return {"message": f"Deleted {count} products"}
-
-# ==================== HEALTH CHECK ====================
+#Health checks
 
 @app.get("/")
 def root():

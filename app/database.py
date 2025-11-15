@@ -6,3 +6,6 @@ DATABASE_URL = "postgresql+psycopg2://postgres:manayathu@localhost:5432/acme_pro
 
 engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+from app.models.webhook import Base as WebhookBase
+WebhookBase.metadata.create_all(bind=engine)
