@@ -11,3 +11,5 @@ migrations/__pycache__
 app/models/__pycache__
 
 app/__pycache__
+
+app/schemas/__pycache__
