@@ -95,6 +95,33 @@ def progress_sse(job_id: str):
 
 # ==================== PRODUCT CRUD ENDPOINTS ====================
 
+@app.delete("/products/bulk-delete")
+def bulk_delete_products(db: Session = Depends(get_db)):
+    """Delete all products (Story 3)"""
+    try:
+        count = db.query(Product).count()
+        if count == 0:
+            return {
+                "success": True,
+                "message": "No products to delete",
+                "deleted_count": 0
+            }
+        
+        db.query(Product).delete()
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Successfully deleted {count} product(s)",
+            "deleted_count": count
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete products: {str(e)}"
+        )
+
 @app.get("/products")
 def list_products(
     page: int = Query(1, ge=1),
@@ -204,13 +231,13 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Product deleted successfully"}
 
-@app.delete("/products/bulk-delete")
-def bulk_delete_products(db: Session = Depends(get_db)):
-    """Delete all products (Story 3)"""
-    count = db.query(Product).count()
-    db.query(Product).delete()
-    db.commit()
-    return {"message": f"Deleted {count} products"}
+# @app.delete("/products/bulk-delete")
+# def bulk_delete_products(db: Session = Depends(get_db)):
+#     """Delete all products (Story 3)"""
+#     count = db.query(Product).count()
+#     db.query(Product).delete()
+#     db.commit()
+#     return {"message": f"Deleted {count} products"}
 
 # ==================== HEALTH CHECK ====================
 

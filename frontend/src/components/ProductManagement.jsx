@@ -1,19 +1,81 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Search, Plus, Edit2, Trash2, X, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, X, Check, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, XCircle } from "lucide-react";
 
 export default function ProductManagement() {
-  const [view, setView] = useState("upload"); // upload, products
+  const [view, setView] = useState("upload"); 
+  const [notification, setNotification] = useState(null);
+  
+  const showNotification = (type, message) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
   
   return (
     <div style={{ minHeight: "100vh", background: "#f5f7fa", padding: "2rem" }}>
       <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
         <Header view={view} setView={setView} />
-        {view === "upload" ? <UploadView /> : <ProductsView />}
+        {notification && <Notification {...notification} onClose={() => setNotification(null)} />}
+        {view === "upload" ? (
+          <UploadView showNotification={showNotification} />
+        ) : (
+          <ProductsView showNotification={showNotification} />
+        )}
       </div>
+      </div>
+  );
+}
+function Notification({ type, message, onClose }) {
+  const config = {
+    success: { bg: "#dcfce7", border: "#86efac", text: "#166534", Icon: CheckCircle },
+    error: { bg: "#fee2e2", border: "#fca5a5", text: "#991b1b", Icon: XCircle },
+    warning: { bg: "#fef3c7", border: "#fcd34d", text: "#92400e", Icon: AlertCircle }
+  };
+  
+  const { bg, border, text, Icon } = config[type] || config.success;
+  
+  return (
+    <div style={{
+      position: "fixed",
+      top: "2rem",
+      right: "2rem",
+      zIndex: 9999,
+      background: bg,
+      border: `1px solid ${border}`,
+      borderRadius: "8px",
+      padding: "1rem 1.5rem",
+      boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+      display: "flex",
+      alignItems: "center",
+      gap: "0.75rem",
+      minWidth: "300px",
+      maxWidth: "500px",
+      animation: "slideIn 0.3s ease-out"
+    }}>
+      <Icon size={20} color={text} />
+      <span style={{ flex: 1, color: text, fontSize: "0.875rem", fontWeight: "500" }}>
+        {message}
+      </span>
+      <button
+        onClick={onClose}
+        style={{
+          border: "none",
+          background: "transparent",
+          cursor: "pointer",
+          padding: "0.25rem",
+          color: text
+        }}
+      >
+        <X size={16} />
+      </button>
+      <style>{`
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }
-
 function Header({ view, setView }) {
   return (
     <div style={{ 
@@ -62,7 +124,7 @@ function Header({ view, setView }) {
   );
 }
 
-function UploadView() {
+function UploadView({ showNotification }) {
   const [jobId, setJobId] = useState(null);
   const [percent, setPercent] = useState(0);
   const [status, setStatus] = useState("idle");
@@ -72,7 +134,10 @@ function UploadView() {
 
   const handleUpload = async () => {
     const file = fileRef.current.files[0];
-    if (!file) return;
+    if (!file){
+      showNotification("error", "Please select a CSV file first");
+      return;
+    }
     setStatus("uploading");
     setPercent(0);
     setMessage("Uploading file...");
@@ -85,15 +150,18 @@ function UploadView() {
       if (!res.ok) {
         setStatus("error");
         setError(data.detail || "Upload failed");
+        showNotification("error", data.detail || "Upload failed");
         return;
       }
       const id = data.job_id;
       setJobId(id);
       setStatus("processing");
+      showNotification("success", "File uploaded successfully, processing...");
       listenProgress(id);
     } catch (err) {
       setStatus("error");
       setError(err.message);
+      showNotification("error", `Upload error: ${err.message}`);
     }
   };
 
@@ -107,10 +175,12 @@ function UploadView() {
         if (payload.message) setMessage(payload.message);
         if (payload.status === "complete") {
           setMessage("Import complete");
+          showNotification("success", `Successfully imported ${payload.processed || 0} products!`);
           sse.close();
         }
         if (payload.status === "error") {
           setError(payload.message || "Error during import");
+          showNotification("error", payload.message || "Error during import");
           sse.close();
         }
       } catch (err) {
@@ -218,19 +288,6 @@ function UploadView() {
             </div>
           )}
           
-          {error && (
-            <div style={{ 
-              marginTop: "1rem",
-              padding: "1rem",
-              background: "#fef2f2",
-              border: "1px solid #fecaca",
-              borderRadius: "6px",
-              color: "#991b1b"
-            }}>
-              <strong>Error:</strong> {error}
-            </div>
-          )}
-          
           {status === "error" && (
             <button 
               onClick={() => { setError(null); setStatus("idle"); setPercent(0); setMessage(""); }}
@@ -254,7 +311,7 @@ function UploadView() {
   );
 }
 
-function ProductsView() {
+function ProductsView({ showNotification }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -283,6 +340,7 @@ function ProductsView() {
       setTotalPages(Math.ceil((data.total || 0) / 20));
     } catch (err) {
       console.error("Failed to fetch products", err);
+      showNotification("error", "Failed to load products");
     }
     setLoading(false);
   };
@@ -290,23 +348,38 @@ function ProductsView() {
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
     try {
-      await fetch(`http://localhost:8000/products/${id}`, { method: "DELETE" });
-      fetchProducts();
+      const res = await fetch(`http://localhost:8000/products/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        showNotification("success", "Product deleted successfully");
+        fetchProducts();
+      } else {
+        const data = await res.json();
+        showNotification("error", data.detail || "Failed to delete product");
+      }
     } catch (err) {
       console.error("Failed to delete", err);
+      showNotification("error", "Failed to delete product");
     }
   };
 
   const handleDeleteAll = async () => {
     try {
-      await fetch("http://localhost:8000/products/bulk-delete", { method: "DELETE" });
-      setShowDeleteAll(false);
-      fetchProducts();
+      const res = await fetch("http://localhost:8000/products/bulk-delete", { method: "DELETE" });
+      const data = await res.json();
+      
+      if (res.ok) {
+        showNotification("success", data.message || `Deleted ${data.deleted_count} products`);
+        setShowDeleteAll(false);
+        setPage(1);
+        fetchProducts();
+      } else {
+        showNotification("error", data.detail || "Failed to delete products");
+      }
     } catch (err) {
       console.error("Failed to delete all", err);
+      showNotification("error", "Failed to delete products");
     }
   };
-
   return (
     <div style={{ background: "white", borderRadius: "12px", padding: "2rem", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
@@ -373,6 +446,7 @@ function ProductsView() {
           product={editProduct} 
           onClose={() => setShowModal(false)} 
           onSave={() => { setShowModal(false); fetchProducts(); }}
+          showNotification={showNotification}
         />
       )}
 
@@ -394,10 +468,11 @@ function Filters({ filters, setFilters, onSearch }) {
       display: "flex", 
       gap: "1rem", 
       marginBottom: "1.5rem",
-      flexWrap: "wrap"
+      flexWrap: "wrap",
+      alignItems: "stretch"
     }}>
-      <div style={{ flex: "1", minWidth: "250px", position: "relative" }}>
-        <Search size={18} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
+      <div style={{ flex: "1", minWidth: "250px", position: "relative", display: "flex" }}>
+        <Search size={18} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "#9ca3af", pointerEvents: "none", zIndex: 1 }} />
         <input
           type="text"
           placeholder="Search by SKU, name, or description..."
@@ -409,7 +484,9 @@ function Filters({ filters, setFilters, onSearch }) {
             padding: "0.625rem 0.75rem 0.625rem 2.5rem",
             border: "1px solid #d1d5db",
             borderRadius: "8px",
-            fontSize: "0.875rem"
+            fontSize: "0.875rem",
+            fontSize: "0.875rem",
+            height: "100%"
           }}
         />
       </div>
@@ -586,7 +663,7 @@ function Pagination({ page, totalPages, setPage }) {
   );
 }
 
-function ProductModal({ product, onClose, onSave }) {
+function ProductModal({ product, onClose, onSave, showNotification  }) {
   const [form, setForm] = useState({
     sku: product?.sku || "",
     name: product?.name || "",
@@ -618,9 +695,11 @@ function ProductModal({ product, onClose, onSave }) {
         const data = await res.json();
         throw new Error(data.detail || "Failed to save product");
       }
+      showNotification("success", product ? "Product updated successfully" : "Product created successfully");
       onSave();
     } catch (err) {
       setError(err.message);
+      showNotification("error", err.message);
     }
     setSaving(false);
   };
