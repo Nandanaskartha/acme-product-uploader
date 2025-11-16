@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Search, Plus, Edit2, Trash2, X, Check, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, XCircle } from "lucide-react";
+import { API_BASE_URL } from "../config";
 
 export default function ProductManagement() {
   const [view, setView] = useState("upload"); 
@@ -145,7 +146,7 @@ function UploadView({ showNotification }) {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const res = await fetch("http://localhost:8000/upload", {method: "POST",body: formData});
+      const res = await fetch(`${API_BASE_URL}/upload`, {method: "POST",body: formData});
       const data = await res.json();
       if (!res.ok) {
         setStatus("error");
@@ -166,7 +167,7 @@ function UploadView({ showNotification }) {
   };
 
   const listenProgress = (id) => {
-    const sse = new EventSource(`http://localhost:8000/progress/${id}`);
+    const sse = new EventSource(`${API_BASE_URL}/progress/${id}`);
     sse.onmessage = (e) => {
       try {
         const payload = JSON.parse(e.data);
@@ -332,9 +333,10 @@ function ProductsView({ showNotification }) {
         page: page,
         limit: 20,
         ...(filters.search && { search: filters.search }),
+
         ...(filters.active !== "all" && { active: filters.active })
       });
-      const res = await fetch(`http://localhost:8000/products?${params}`);
+      const res = await fetch(`${API_BASE_URL}/products?${params}`);
       const data = await res.json();
       setProducts(data.products || []);
       setTotalPages(Math.ceil((data.total || 0) / 20));
@@ -348,7 +350,7 @@ function ProductsView({ showNotification }) {
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
     try {
-      const res = await fetch(`http://localhost:8000/products/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE_URL}/products/${id}`, { method: "DELETE" });
       if (res.ok) {
         showNotification("success", "Product deleted successfully");
         fetchProducts();
@@ -364,7 +366,7 @@ function ProductsView({ showNotification }) {
 
   const handleDeleteAll = async () => {
     try {
-      const res = await fetch("http://localhost:8000/products/bulk-delete", { method: "DELETE" });
+      const res = await fetch(`${API_BASE_URL}/products/bulk-delete`, { method: "DELETE" });
       const data = await res.json();
       
       if (res.ok) {
@@ -683,8 +685,8 @@ function ProductModal({ product, onClose, onSave, showNotification  }) {
     setError(null);
     try {
       const url = product 
-        ? `http://localhost:8000/products/${product.id}`
-        : "http://localhost:8000/products";
+        ? `${API_BASE_URL}/products/${product.id}`
+        : `${API_BASE_URL}/products`;
       const method = product ? "PUT" : "POST";
       const res = await fetch(url, {
         method,

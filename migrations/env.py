@@ -9,11 +9,11 @@ from app.models.product import Base
 config = context.config
 
 # For enabling render
-# import os
+import os
 
-# db_url = os.getenv("DATABASE_URL")
-# if db_url:
-#     config.set_main_option("sqlalchemy.url", db_url)
+db_url = os.getenv("DATABASE_URL")
+if db_url:
+    config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

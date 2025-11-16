@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, X, Power, Zap, CheckCircle, XCircle, Clock, Activity } from "lucide-react";
-
+import { API_BASE_URL } from "../config";
 export default function WebhookManagement() {
   const [webhooks, setWebhooks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -21,7 +21,7 @@ export default function WebhookManagement() {
   const fetchWebhooks = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/webhooks");
+      const res = await  fetch(`${API_BASE_URL}/webhooks`, { method: "GET" });
       const data = await res.json();
       setWebhooks(data);
     } catch (err) {
@@ -34,7 +34,7 @@ export default function WebhookManagement() {
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this webhook?")) return;
     try {
-      const res = await fetch(`http://localhost:8000/webhooks/${id}`, { method: "DELETE" });
+      const res = await  fetch(`${API_BASE_URL}/webhooks/${id}`, { method: "DELETE" });
       if (res.ok) {
         showNotification("success", "Webhook deleted successfully");
         fetchWebhooks();
@@ -48,7 +48,7 @@ export default function WebhookManagement() {
 
   const handleToggle = async (id) => {
     try {
-      const res = await fetch(`http://localhost:8000/webhooks/${id}/toggle`, { method: "POST" });
+      const res = await  fetch(`${API_BASE_URL}/webhooks/${id}/toggle`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
         showNotification("success", data.message);
@@ -64,7 +64,7 @@ export default function WebhookManagement() {
   const handleTest = async (id) => {
     setTestResult({ loading: true, id });
     try {
-      const res = await fetch(`http://localhost:8000/webhooks/${id}/test`, { method: "POST" });
+      const res = await  fetch(`${API_BASE_URL}/webhooks/${id}/test`, { method: "POST" });
       const data = await res.json();
       setTestResult({ ...data, id, loading: false });
       if (data.success) {

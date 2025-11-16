@@ -1,9 +1,10 @@
 import os
 import json
 import redis
+import ssl
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-redis_client = redis.Redis.from_url(REDIS_URL)
+redis_client = redis.Redis.from_url(REDIS_URL, ssl_cert_reqs=ssl.CERT_NONE)
 
 def publish_progress(job_id: str, payload: dict):
     channel = f"progress:{job_id}"

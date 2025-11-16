@@ -1,5 +1,8 @@
 import os
 from celery import Celery
+import ssl
+from dotenv import load_dotenv
+load_dotenv()
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
@@ -20,7 +23,13 @@ celery.conf.update(
     enable_utc=True,
     broker_connection_retry_on_startup=True,
 )
+celery.conf.broker_use_ssl = {
+    "ssl_cert_reqs": ssl.CERT_NONE
+}
 
+celery.conf.redis_backend_use_ssl = {
+    "ssl_cert_reqs": ssl.CERT_NONE
+}
 # Windows compatibility
 if os.name == 'nt':
     celery.conf.update(

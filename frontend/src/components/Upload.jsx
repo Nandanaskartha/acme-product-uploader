@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-
+import { API_BASE_URL } from "../config";
 export default function Upload() {
   const [jobId, setJobId] = useState(null);
   const [percent, setPercent] = useState(0);
@@ -17,7 +17,7 @@ export default function Upload() {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const res = await fetch("http://localhost:8000/upload", {method: "POST",body: formData,});
+      const res = await fetch(`${API_BASE_URL}/upload`, {method: "POST",body: formData,});
       const data = await res.json();
       if (!res.ok) {
         setStatus("error");
@@ -35,7 +35,7 @@ export default function Upload() {
   };
 
   const listenProgress = (id) => {
-    const sse = new EventSource(`http://localhost:8000/progress/${id}`);
+    const sse = new EventSource(`${API_BASE_URL}/progress/${id}`);
     sse.onmessage = (e) => {
       try {
         const payload = JSON.parse(e.data);

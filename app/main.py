@@ -23,10 +23,11 @@ UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/tmp/uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = FastAPI()
-
+REDIS_URL= os.getenv("REDIS_URL")
+print(REDIS_URL)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://acme-frontend-df59.onrender.com", "http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

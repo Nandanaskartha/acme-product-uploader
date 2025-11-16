@@ -4,7 +4,7 @@ import WebhookManagement from "./components/WebhookManagement";
 
 export default function App() {
   const [page, setPage] = useState("upload");
-
+  console.log("APP LOADED");
   return (
     <div style={{ padding: 20, textAlign: "center" }}>
       
